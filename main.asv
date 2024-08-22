@@ -1,0 +1,97 @@
+clear
+clc
+
+nmi = 1000;
+
+Tol = 1;
+
+plots = true;
+
+% CaseSelect:
+
+% 1 for SINR prio
+% 2 for TP prio
+% 3 for users with higher demand prio
+
+% This will give objective functions based on the criteria weights
+% given by AHP in each of those 3 options.
+
+CaseSelect = 3;
+
+dir = '/home/henry-ferreira/Documentos/WORK/PeerJ_2/Trab final/';
+
+% % Adaptive-AHP and CS, Simulation 1
+
+DataRate1 = [100*10^6, 15*10^6, 7*10^6];
+
+Users1 = load(horzcat(dir,'Users1.txt'));
+
+Demand1 = load(horzcat(dir,'Demand1.txt'));
+
+delta_cov1 = 0.20;
+N_users1 = length(Users1);
+X1 = 2000;
+Y1 = 2000;
+h1 = 100; %height in meters
+
+alpha1 = 4.88;
+beta1 = 0.43;
+
+[Zcov1,Zcap1,Rcov1,Rcap1, Pt1] = numerology(h1,X1,Y1,N_users1,delta_cov1, DataRate1, alpha1, beta1);
+
+[UAV1, Best1, AHP_time1, Assoc1, Mean_SINR_AHP1, Mean_DD_AHP1] = drone_positioning_AHP(CaseSelect, Pt1, N_users1, X1, ...
+    Y1, h1, DataRate1, Users1, Demand1, Zcov1, Zcap1, Rcov1, Rcap1, nmi, alpha1, beta1, plots);
+
+[bestnest1, fmin1, Assoc_CS1, Mean_SINR_CS1, Mean_DD_CS1, Simulation_time_CS1]=cs_positioning(CaseSelect, Pt1, N_users1, X1, ...
+    Y1, h1, DataRate1, Users1, Demand1, Zcov1, Zcap1, Rcov1, Rcap1, nmi, Tol, alpha1, beta1, plots);
+
+% % Adaptive-AHP and CS, Simulation 2
+
+DataRate2 = [100*10^6, 15*10^6, 7*10^6];
+
+Users2 = load(horzcat(dir,'Users2.txt'));
+
+Demand2 = load(horzcat(dir,'Demand2.txt'));
+
+delta_cov2 = 0.50;
+N_users2 = length(Users2);
+X2 = 200;
+Y2 = 200;
+h2 = 30; %height in meters
+
+alpha2 = 27.23;
+beta2 = 0.08;
+
+[Zcov2,Zcap2,Rcov2,Rcap2,Pt2] = numerology(h2,X2,Y2,N_users2,delta_cov2, DataRate2, alpha2, beta2);
+
+[UAV2, Best2, AHP_time2, Assoc2, Mean_SINR_AHP2, Mean_DD_AHP2] = drone_positioning_AHP(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2, Demand2, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
+
+[bestnest2, fmin2, Assoc_CS2, Mean_SINR_CS2, Mean_DD_CS2, Simulation_time_CS2]=cs_positioning(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2, Demand2, Zcov2, Zcap2, Rcov2, Rcap2, nmi, Tol, alpha2, beta2, plots);
+
+% 
+% % Adaptive-AHP and CS, Simulation 3
+
+DataRate3 = [6.0*10^6 3.0*10^6 0.8*10^6];
+
+Users3 = load(horzcat(dir,'Users_festival.txt'));
+
+Demand3 = load(horzcat(dir,'Demand_festival.txt'));
+
+delta_cov3 = 0.50;
+N_users3 = length(Users3);
+X3 = 1270;
+Y3 = 400;
+h3 = 50; %height in meters
+
+alpha3 = 9.6;
+beta3 = 0.28;
+
+% [Zcov3,Zcap3,Rcov3,Rcap3,Pt3] = numerology(h3,X3,Y3,N_users3,delta_cov3,DataRate3, alpha3, beta3);
+
+% [UAV3, Best3, AHP_time3, Assoc3, Mean_SINR_AHP3, Mean_DD_AHP3] = drone_positioning_AHP(CaseSelect, Pt3, N_users3, X3, ...
+%     Y3, h3, DataRate3, Users3, Demand3, Zcov3, Zcap3, Rcov3, Rcap3, nmi, alpha3, beta3, plots);
+
+% [bestnest3, fmin3, Assoc_CS3, Mean_SINR_CS3, Mean_DD_CS3, Simulation_time_CS3]=cs_positioning(CaseSelect, Pt3, N_users3, X3, ...
+%     Y3, h3, DataRate3, Users3, Demand3, Zcov3, Zcap3, Rcov3, Rcap3, nmi, Tol, alpha3, beta3, plots);
