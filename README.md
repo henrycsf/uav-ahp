@@ -25,8 +25,8 @@ Simulations considering three distinct scenarios (rural, urban,
 and music festival) are executed in order to validate the proposed
 planning and deployment. Results demonstrate that UAV-AHP
 outperforms a common bioinspired method for UAV deployment
-(Cuckoo Search, or CS) in computation-heavy scenarios, provid-
-ing considerably lower running times and satisfactory solutions
+(Cuckoo Search, or CS) in computation-heavy scenarios, providing 
+considerably lower running times and satisfactory solutions
 for environments with high density of users.
 
 Index terms: Internet of Flying Things (IoFT), unmanned
