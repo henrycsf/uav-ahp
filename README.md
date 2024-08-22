@@ -1,7 +1,12 @@
 # uav-ahp
 
 UAV deployment for 5G emergency networks with preliminary network planning and decision-making via AHP. Developed for the paper named "Dynamic Deployment of UAVs for 5G Emergency Networks Using Multi-Criteria Decision-Making", 
-currently under peer review.
+currently under peer review. It also includes a metaheuristic version, for means of comparison. More info in the paper.
+
+The functions drone_positioning_AHP and CS_positioning are the UAV deployment, decision-making part based in AHP and CS, respectively. The file numerology.m defines the network planning and 5G specifications of the network.
+
+To run the codes, select one of the "main" files. "main.m" runs a one-time result of the simulations, selecting different priority cases. "main_plot.m" is made to run simulations several times, take an average of the output metrics,
+and put them in bar graphs. "main_comparison.m" is for the complexity and network planning comparison made for Scenario 2 in the paper's results.
 
 Paper Abstract:
 
