@@ -1,0 +1,635 @@
+clear
+clc
+close all
+
+n_cs = 9;
+
+nmi = 100;
+
+Tol = 1.1;
+
+plots = false;
+
+% CaseSelect:
+
+% 1 for SINR prio
+% 2 for TP prio
+% 3 for coverage prio
+
+% This will give objective functions based on the criteria weights
+% given by AHP in each of those 3 options.
+
+CaseSelect = 1;
+
+%Change dir to the root folder of the project in your PC
+
+dir = '\\maa1.cc.lut.fi\home\z143799\Documents\Projects\uav-ahp-main\';
+
+% % Adaptive-AHP and CS, Simulation 2
+
+DataRate2 = [100*10^6, 15*10^6, 7*10^6];
+
+Users2 = {load(horzcat(dir,'Users2_02.txt')), load(horzcat(dir,'Users2_01.txt')), load(horzcat(dir,'Users2_0.txt')), load(horzcat(dir,'Users2.txt')), ...
+    load(horzcat(dir,'Users2_2.txt')), load(horzcat(dir,'Users2_3.txt')), load(horzcat(dir,'Users2_4.txt')), load(horzcat(dir,'Users2_5.txt'))};
+
+Demand2 = {load(horzcat(dir,'Demand2_02.txt')),load(horzcat(dir,'Demand2_01.txt')),load(horzcat(dir,'Demand2_0.txt')), load(horzcat(dir,'Demand2.txt')), ...
+    load(horzcat(dir,'Demand2_2.txt')), load(horzcat(dir,'Demand2_3.txt')), load(horzcat(dir,'Demand2_4.txt')), load(horzcat(dir,'Demand2_5.txt'))};
+
+delta_cov2 = 0.40;
+X2 = 200;
+Y2 = 200;
+h2 = 30; %height in meters
+
+alpha2 = 27.23;
+beta2 = 0.08;
+
+% for k = 1:length(Users2)
+% 
+% N_users2(k) = length(Users2{1,k});
+% 
+% [Zcov2(k),Zcap2(k),Rcov2(k),Rcap2(k),Pt2(k)] = numerology(h2,X2,Y2,N_users2(k),delta_cov2, DataRate2, alpha2, beta2);
+% 
+% [UAV2{1,k}, Best2{1,k}, AHP_time2{1,k}, Assoc2{1,k}, Mean_SINR_AHP2{1,k}, Mean_DD_AHP2{1,k}] = drone_positioning_AHP(CaseSelect, Pt2(k), N_users2(k), X2, ...
+%     Y2, h2, DataRate2, Users2{1,k}, Demand2{1,k}, Zcov2(k), Zcap2(k), Rcov2(k), Rcap2(k), nmi, alpha2, beta2, plots);
+% 
+% [bestnest2{1,k}, fmin2{1,k}, Assoc_CS2{1,k}, Mean_SINR_CS2{1,k}, Mean_DD_CS2{1,k}, Simulation_time_CS2{1,k}]=cs_positioning(CaseSelect, Pt2(k), N_users2(k), X2, ...
+%     Y2, h2, DataRate2, Users2{1,k}, Demand2{1,k}, Zcov2(k), Zcap2(k), Rcov2(k), Rcap2(k), nmi, Tol, alpha2, beta2, plots);
+% 
+% AHP_time(k) = AHP_time2{1,k};
+% CS_time(k) = Simulation_time_CS2{1,k};
+% 
+% Assoc_AHP(k) = Assoc2{1,k};
+% Assoc_CS(k) = Assoc_CS2{1,k};
+% 
+% SINR_AHP(k) = Mean_SINR_AHP2{1,k};
+% SINR_CS(k) = Mean_SINR_CS2{1,k};
+% 
+% end
+% 
+% figure
+% 
+% hold on
+% plot(N_users2, AHP_time,'--r', N_users2, CS_time,'--b')
+% scatter(N_users2, AHP_time,'r*')
+% scatter(N_users2, CS_time,'b*')
+% yscale("log")
+% hold off
+
+%% Varying the number of UAV-BSs keeping Nusers = 2000
+
+% syms R;
+% 
+% Zcov2 = [4 6 8 10 12 14 16 18];
+% 
+% Mu = [0 1 2]; Latency = [1*10^-3 0.5*10^-3 0.25*10^-3]; delta_f =
+% [15*10^3 30*10^3 60*10^3]; B = [50*10^6 20*10^6 10*10^6]; vlayers = [4 4
+% 2]; Qm = [8 8 6];
+% 
+% factor = 1; Rmax = 948/1024; OH = 0.14; Ts = 10^-3 ./ (14*2.^Mu);
+% 
+% N_RB = [270 51 11];
+% 
+% V = vlayers .* Qm .* factor .* Rmax;
+% 
+% TxRate = 10^-6 * (V .* N_RB .* 12 .* (1-OH))./Ts;
+% 
+% N_SC = 12; Nx_RB = N_RB; Nthr_RB = sum(N_RB); Nx = N_RB .* N_SC; Nx_CET =
+% floor(0.95 .* Nx_RB);
+% 
+% f = 3.5; velc = 299792458; ZetaLOS = 1; ZetaNLOS = 20; Gt = 3; Gr = 0;
+% 
+% h = h2; % h_UE = 1.5; % % d_BP = 4 * (h_UE - 1) * (h-1) * f * 10^9/ velc;
+% 
+% pen_loss = 3; S_UE = -90; sigma = 4;
+% 
+% IL = (-10) * log10(1 - delta_cov2);
+% 
+% L = IL + pen_loss + S_UE + sigma;
+% 
+% Pmax = 30;
+% 
+% Rcov_x = zeros(1,3);
+% 
+% Ex = zeros(1,length(Nx_CET)); Ex_CET = zeros(1,length(Nx_CET)); PL_max =
+% zeros(1,length(Ex_CET));
+% 
+% for x = 1:length(TxRate)
+% 
+%         Ex(x) = Pmax - 10.*log10(Nx(x));
+% 
+%         Ex_CET(x) = Ex(x) + 10 * log10(Nx_CET(x) * N_SC);
+% 
+%         PL_max(x) = Ex_CET(x) - L;
+% 
+%         theta = atan(h./R);
+% 
+%         Z = (alpha2*exp(-beta2*((180/pi).*theta - alpha2)));
+% 
+%         PL =
+%         20*log10((4*pi*(f*10^9)*R./velc))+((ZetaLOS+Z.*ZetaNLOS)./(1+Z));
+% 
+%         Rcov_solve = solve(PL == PL_max(x), R) * 10^-3;
+% 
+%         Rcov_x(x) = cast(Rcov_solve(1), 'double');
+% 
+%         Rcov_x(x) = abs(Rcov_x(x));
+% end
+% 
+% Rcov2 = min(Rcov_x);
+
+N_users2 = [750 1200 1500 2000 2300 2700 3200 3500];
+
+Nsamples = 30;
+
+for n = 1:Nsamples
+
+for k = 1:length(Users2)
+
+[Zcov2(k),Zcap2(k),Rcov2(k),Rcap2(k),Pt2(k)] = numerology(h2,X2,Y2,N_users2(k),delta_cov2, DataRate2, alpha2, beta2);
+
+[UAV2{n,k}, Best2{n,k}, AHP_time2{n,k}, Assoc2{n,k}, Mean_SINR_AHP2{n,k}, Mean_DD_AHP2{n,k}] = drone_positioning_AHP(CaseSelect, Pt2(k), N_users2(4), X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2(k), Zcap2(k), Rcov2(k), Rcap2(k), nmi, alpha2, beta2, plots);
+
+[bestnest2{n,k}, fmin2{n,k}, Assoc_CS2{n,k}, Mean_SINR_CS2{n,k}, Mean_DD_CS2{n,k}, Simulation_time_CS2{n,k}]=cs_positioning(CaseSelect, Pt2(k), N_users2(4), X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2(k), Zcap2(k), Rcov2(k), Rcap2(k), nmi, Tol, n_cs, alpha2, beta2, plots);
+
+AHP_time(n,k) = AHP_time2{n,k};
+CS_time(n,k) = Simulation_time_CS2{n,k};
+
+Assoc_AHP(n,k) = Assoc2{n,k};
+Assoc_CS(n,k) = Assoc_CS2{n,k};
+
+SINR_AHP(n,k) = Mean_SINR_AHP2{n,k};
+SINR_CS(n,k) = Mean_SINR_CS2{n,k};
+
+end
+
+end
+
+Mean_AHP_time = mean(AHP_time, 1);
+Mean_CS_time = mean(CS_time, 1);
+
+Mean_Assoc_AHP = mean(Assoc_AHP, 1);
+Mean_Assoc_CS = mean(Assoc_CS, 1);
+
+Mean_SINR_AHP = mean(SINR_AHP, 1);
+Mean_SINR_CS = mean(SINR_CS, 1);
+
+
+figure
+
+hold on
+plot(Zcap2, Mean_AHP_time,'--b', Zcap2, Mean_CS_time,'--r')
+scatter(Zcap2, Mean_AHP_time,'b*')
+scatter(Zcap2, Mean_CS_time,'r*')
+%yscale("log")
+hold off
+
+
+figure
+
+hold on
+plot(Zcap2, Mean_AHP_time,'--b')
+scatter(Zcap2, Mean_AHP_time,'b*')
+%yscale("log")
+hold off
+
+
+figure
+
+hold on
+plot(Zcap2, Mean_CS_time,'--r')
+scatter(Zcap2, Mean_CS_time,'r*')
+%yscale("log")
+hold off
+
+figure
+
+hold on
+plot(Zcap2, Mean_SINR_AHP,'--b', Zcap2, Mean_SINR_CS,'--r')
+scatter(Zcap2, Mean_SINR_AHP,'b*')
+scatter(Zcap2, Mean_SINR_CS,'r*')
+%yscale("log")
+hold off
+
+%% Varying the number of users, keeping the same Zmin = 10
+
+N_users2 = [500 1000 1500 2000 2500 3000 3500 4000];
+
+Nsamples = 30;
+
+[Zcov2,Zcap2,Rcov2,Rcap2,Pt2] = numerology(h2,X2,Y2,N_users2(4),delta_cov2, DataRate2, alpha2, beta2);
+
+for n = 1:Nsamples
+
+for k = 1:length(Users2)
+
+[UAV2{n,k}, Best2{n,k}, AHP_time2{n,k}, Assoc2{n,k}, Mean_SINR_AHP2{n,k}, Mean_DD_AHP2{n,k}] = drone_positioning_AHP(CaseSelect, Pt2, N_users2(k), X2, ...
+    Y2, h2, DataRate2, Users2{1,k}, Demand2{1,k}, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
+
+[bestnest2{n,k}, fmin2{n,k}, Assoc_CS2{n,k}, Mean_SINR_CS2{n,k}, Mean_DD_CS2{n,k}, Simulation_time_CS2{n,k}]=cs_positioning(CaseSelect, Pt2, N_users2(k), X2, ...
+    Y2, h2, DataRate2, Users2{1,k}, Demand2{1,k}, Zcov2, Zcap2, Rcov2, Rcap2, nmi, Tol, n_cs,  alpha2, beta2, plots);
+
+AHP_time(n,k) = AHP_time2{n,k};
+CS_time(n,k) = Simulation_time_CS2{n,k};
+
+Assoc_AHP(n,k) = Assoc2{n,k};
+Assoc_CS(n,k) = Assoc_CS2{n,k};
+
+SINR_AHP(n,k) = Mean_SINR_AHP2{n,k};
+SINR_CS(n,k) = Mean_SINR_CS2{n,k};
+
+end
+
+end
+
+Mean_AHP_time = mean(AHP_time, 1);
+Mean_CS_time = mean(CS_time, 1);
+
+Mean_Assoc_AHP = mean(Assoc_AHP, 1);
+Mean_Assoc_CS = mean(Assoc_CS, 1);
+
+Mean_SINR_AHP = mean(SINR_AHP, 1);
+Mean_SINR_CS = mean(SINR_CS, 1);
+
+
+figure
+
+hold on
+plot(N_users2, Mean_AHP_time,'--b', N_users2, Mean_CS_time,'--r')
+scatter(N_users2, Mean_AHP_time,'b*')
+scatter(N_users2, Mean_CS_time,'r*')
+%yscale("log")
+hold off
+
+
+figure
+
+hold on
+plot(N_users2, Mean_AHP_time,'--b')
+scatter(N_users2, Mean_AHP_time,'b*')
+%yscale("log")
+hold off
+
+
+figure
+
+hold on
+plot(N_users2, Mean_CS_time,'--r')
+scatter(N_users2, Mean_CS_time,'r*')
+%yscale("log")
+hold off
+
+figure
+
+hold on
+plot(N_users2, Mean_SINR_AHP,'--b', N_users2, Mean_SINR_CS,'--r')
+scatter(N_users2, Mean_SINR_AHP,'b*')
+scatter(N_users2, Mean_SINR_CS,'r*')
+%yscale("log")
+hold off
+
+%% Maximum Iterations (nmi) varies, Nusers = 2000 and Zmin = 10
+
+N_users2 = 2000;
+
+Nsamples = 30;
+
+[Zcov2,Zcap2,Rcov2,Rcap2,Pt2] = numerology(h2,X2,Y2,N_users2,delta_cov2, DataRate2, alpha2, beta2);
+
+nmi = [20 40 80 100 120 140 160 180];
+
+for n = 1:Nsamples
+
+for k = 1:length(nmi)
+
+[UAV2{n,k}, Best2{n,k}, AHP_time2{n,k}, Assoc2{n,k}, Mean_SINR_AHP2{n,k}, Mean_DD_AHP2{n,k}] = drone_positioning_AHP(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2, Zcap2, Rcov2, Rcap2, nmi(k), alpha2, beta2, plots);
+
+[bestnest2{n,k}, fmin2{n,k}, Assoc_CS2{n,k}, Mean_SINR_CS2{n,k}, Mean_DD_CS2{n,k}, Simulation_time_CS2{n,k}]=cs_positioning(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2, Zcap2, Rcov2, Rcap2, nmi(k), Tol, n_cs, alpha2, beta2, plots);
+
+AHP_time(n,k) = AHP_time2{n,k};
+CS_time(n,k) = Simulation_time_CS2{n,k};
+
+Assoc_AHP(n,k) = Assoc2{n,k};
+Assoc_CS(n,k) = Assoc_CS2{n,k};
+
+SINR_AHP(n,k) = Mean_SINR_AHP2{n,k};
+SINR_CS(n,k) = Mean_SINR_CS2{n,k};
+
+end
+
+end
+
+Mean_AHP_time = mean(AHP_time, 1);
+Mean_CS_time = mean(CS_time, 1);
+
+Mean_Assoc_AHP = mean(Assoc_AHP, 1);
+Mean_Assoc_CS = mean(Assoc_CS, 1);
+
+Mean_SINR_AHP = mean(SINR_AHP, 1);
+Mean_SINR_CS = mean(SINR_CS, 1);
+
+
+figure
+
+hold on
+plot(nmi, Mean_AHP_time,'--b', nmi, Mean_CS_time,'--r')
+scatter(nmi, Mean_AHP_time,'b*')
+scatter(nmi, Mean_CS_time,'r*')
+%yscale("log")
+hold off
+
+
+figure
+
+hold on
+plot(nmi, Mean_AHP_time,'--b')
+scatter(nmi, Mean_AHP_time,'b*')
+%yscale("log")
+hold off
+
+
+figure
+
+hold on
+plot(nmi, Mean_CS_time,'--r')
+scatter(nmi, Mean_CS_time,'r*')
+%yscale("log")
+hold off
+
+figure
+
+hold on
+plot(nmi, Mean_SINR_AHP,'--b', nmi, Mean_SINR_CS,'--r')
+scatter(nmi, Mean_SINR_AHP,'b*')
+scatter(nmi, Mean_SINR_CS,'r*')
+%yscale("log")
+hold off
+
+%% Population Size / Scanning Points vary, all else is constant
+
+N_users2 = 2000;
+
+Nsamples = 30;
+
+[Zcov2,Zcap2,Rcov2,Rcap2,Pt2] = numerology(h2,X2,Y2,N_users2,delta_cov2, DataRate2, alpha2, beta2);
+
+nmi = 100;
+
+n_cs = [3 5 7 9 11 13 15 17];
+
+for n = 1:Nsamples
+
+    [UAV2{n,1}, Best2{n,1}, AHP_time2{n,1}, Assoc2{n,1}, Mean_SINR_AHP2{n,1}, Mean_DD_AHP2{n,1}] = drone_positioning_AHP_3(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
+
+    [UAV2{n,2}, Best2{n,2}, AHP_time2{n,2}, Assoc2{n,2}, Mean_SINR_AHP2{n,2}, Mean_DD_AHP2{n,2}] = drone_positioning_AHP_5(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
+
+    [UAV2{n,3}, Best2{n,3}, AHP_time2{n,3}, Assoc2{n,3}, Mean_SINR_AHP2{n,3}, Mean_DD_AHP2{n,3}] = drone_positioning_AHP_7(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
+
+    [UAV2{n,4}, Best2{n,4}, AHP_time2{n,4}, Assoc2{n,4}, Mean_SINR_AHP2{n,4}, Mean_DD_AHP2{n,4}] = drone_positioning_AHP(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
+
+    [UAV2{n,5}, Best2{n,5}, AHP_time2{n,5}, Assoc2{n,5}, Mean_SINR_AHP2{n,5}, Mean_DD_AHP2{n,5}] = drone_positioning_AHP_11(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
+
+    [UAV2{n,6}, Best2{n,6}, AHP_time2{n,6}, Assoc2{n,6}, Mean_SINR_AHP2{n,6}, Mean_DD_AHP2{n,6}] = drone_positioning_AHP_13(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
+
+    [UAV2{n,7}, Best2{n,7}, AHP_time2{n,7}, Assoc2{n,7}, Mean_SINR_AHP2{n,7}, Mean_DD_AHP2{n,7}] = drone_positioning_AHP_15(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
+
+    [UAV2{n,8}, Best2{n,8}, AHP_time2{n,8}, Assoc2{n,8}, Mean_SINR_AHP2{n,8}, Mean_DD_AHP2{n,8}] = drone_positioning_AHP_17(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
+
+for k = 1:length(n_cs)
+
+[bestnest2{n,k}, fmin2{n,k}, Assoc_CS2{n,k}, Mean_SINR_CS2{n,k}, Mean_DD_CS2{n,k}, Simulation_time_CS2{n,k}]=cs_positioning(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2, Zcap2, Rcov2, Rcap2, nmi, Tol, n_cs(k), alpha2, beta2, plots);
+
+AHP_time(n,k) = AHP_time2{n,k};
+CS_time(n,k) = Simulation_time_CS2{n,k};
+
+Assoc_AHP(n,k) = Assoc2{n,k};
+Assoc_CS(n,k) = Assoc_CS2{n,k};
+
+SINR_AHP(n,k) = Mean_SINR_AHP2{n,k};
+SINR_CS(n,k) = Mean_SINR_CS2{n,k};
+
+end
+
+end
+
+Mean_AHP_time = mean(AHP_time, 1);
+Mean_CS_time = mean(CS_time, 1);
+
+Mean_Assoc_AHP = mean(Assoc_AHP, 1);
+Mean_Assoc_CS = mean(Assoc_CS, 1);
+
+Mean_SINR_AHP = mean(SINR_AHP, 1);
+Mean_SINR_CS = mean(SINR_CS, 1);
+
+
+figure
+
+hold on
+plot(n_cs, Mean_AHP_time,'--b', n_cs, Mean_CS_time,'--r')
+scatter(n_cs, Mean_AHP_time,'b*')
+scatter(n_cs, Mean_CS_time,'r*')
+%yscale("log")
+hold off
+
+
+figure
+
+hold on
+plot(n_cs, Mean_AHP_time,'--b')
+scatter(n_cs, Mean_AHP_time,'b*')
+%yscale("log")
+hold off
+
+
+figure
+
+hold on
+plot(n_cs, Mean_CS_time,'--r')
+scatter(n_cs, Mean_CS_time,'r*')
+%yscale("log")
+hold off
+
+figure
+
+hold on
+plot(n_cs, Mean_SINR_AHP,'--b', n_cs, Mean_SINR_CS,'--r')
+scatter(n_cs, Mean_SINR_AHP,'b*')
+scatter(n_cs, Mean_SINR_CS,'r*')
+%yscale("log")
+hold off
+
+%% Let's do it all together now!
+
+N_users2 = [500 1000 1500 2000 2500 3000 3500 4000];
+
+n_cs = [3 5 7 9 11 13 15 17];
+
+nmi = [20 40 80 100 120 140 160 180];
+
+Nsamples = 30;
+
+for k = 1:length(Users2)
+
+[Zcov2(k),Zcap2(k),Rcov2(k),Rcap2(k),Pt2(k)] = numerology(h2,X2,Y2,N_users2(k),delta_cov2, DataRate2, alpha2, beta2);
+
+end
+
+for n = 1:Nsamples
+
+    [UAV2{n,1}, Best2{n,1}, AHP_time2{n,1}, Assoc2{n,1}, Mean_SINR_AHP2{n,1}, Mean_DD_AHP2{n,1}] = drone_positioning_AHP_3(CaseSelect, Pt2(1), N_users2(1), X2, ...
+    Y2, h2, DataRate2, Users2{1,1}, Demand2{1,1}, Zcov2(1), Zcap2(1), Rcov2(1), Rcap2(1), nmi(1), alpha2, beta2, plots);
+
+    [UAV2{n,2}, Best2{n,2}, AHP_time2{n,2}, Assoc2{n,2}, Mean_SINR_AHP2{n,2}, Mean_DD_AHP2{n,2}] = drone_positioning_AHP_5(CaseSelect, Pt2(2), N_users2(2), X2, ...
+    Y2, h2, DataRate2, Users2{1,2}, Demand2{1,2}, Zcov2(2), Zcap2(2), Rcov2(2), Rcap2(2), nmi(2), alpha2, beta2, plots);
+
+    [UAV2{n,3}, Best2{n,3}, AHP_time2{n,3}, Assoc2{n,3}, Mean_SINR_AHP2{n,3}, Mean_DD_AHP2{n,3}] = drone_positioning_AHP_7(CaseSelect, Pt2(3), N_users2(3), X2, ...
+    Y2, h2, DataRate2, Users2{1,3}, Demand2{1,3}, Zcov2(3), Zcap2(3), Rcov2(3), Rcap2(3), nmi(3), alpha2, beta2, plots);
+
+    [UAV2{n,4}, Best2{n,4}, AHP_time2{n,4}, Assoc2{n,4}, Mean_SINR_AHP2{n,4}, Mean_DD_AHP2{n,4}] = drone_positioning_AHP(CaseSelect, Pt2(4), N_users2(4), X2, ...
+    Y2, h2, DataRate2, Users2{1,4}, Demand2{1,4}, Zcov2(4), Zcap2(4), Rcov2(4), Rcap2(4), nmi(4), alpha2, beta2, plots);
+
+    [UAV2{n,5}, Best2{n,5}, AHP_time2{n,5}, Assoc2{n,5}, Mean_SINR_AHP2{n,5}, Mean_DD_AHP2{n,5}] = drone_positioning_AHP_11(CaseSelect, Pt2(5), N_users2(5), X2, ...
+    Y2, h2, DataRate2, Users2{1,5}, Demand2{1,5}, Zcov2(5), Zcap2(5), Rcov2(5), Rcap2(5), nmi(5), alpha2, beta2, plots);
+
+    [UAV2{n,6}, Best2{n,6}, AHP_time2{n,6}, Assoc2{n,6}, Mean_SINR_AHP2{n,6}, Mean_DD_AHP2{n,6}] = drone_positioning_AHP_13(CaseSelect, Pt2(6), N_users2(6), X2, ...
+    Y2, h2, DataRate2, Users2{1,6}, Demand2{1,6}, Zcov2(6), Zcap2(6), Rcov2(6), Rcap2(6), nmi(6), alpha2, beta2, plots);
+
+    [UAV2{n,7}, Best2{n,7}, AHP_time2{n,7}, Assoc2{n,7}, Mean_SINR_AHP2{n,7}, Mean_DD_AHP2{n,7}] = drone_positioning_AHP_15(CaseSelect, Pt2(7), N_users2(7), X2, ...
+    Y2, h2, DataRate2, Users2{1,7}, Demand2{1,7}, Zcov2(7), Zcap2(7), Rcov2(7), Rcap2(7), nmi(7), alpha2, beta2, plots);
+
+    [UAV2{n,8}, Best2{n,8}, AHP_time2{n,8}, Assoc2{n,8}, Mean_SINR_AHP2{n,8}, Mean_DD_AHP2{n,8}] = drone_positioning_AHP_17(CaseSelect, Pt2(8), N_users2(8), X2, ...
+    Y2, h2, DataRate2, Users2{1,8}, Demand2{1,8}, Zcov2(8), Zcap2(8), Rcov2(8), Rcap2(8), nmi(8), alpha2, beta2, plots);
+
+for k = 1:length(Users2)
+
+[bestnest2{n,k}, fmin2{n,k}, Assoc_CS2{n,k}, Mean_SINR_CS2{n,k}, Mean_DD_CS2{n,k}, Simulation_time_CS2{n,k}]=cs_positioning(CaseSelect, Pt2(k), N_users2(k), X2, ...
+    Y2, h2, DataRate2, Users2{1,k}, Demand2{1,k}, Zcov2(k), Zcap2(k), Rcov2(k), Rcap2(k), nmi(k), Tol, n_cs(k), alpha2, beta2, plots);
+
+AHP_time(n,k) = AHP_time2{n,k};
+CS_time(n,k) = Simulation_time_CS2{n,k};
+
+Assoc_AHP(n,k) = Assoc2{n,k};
+Assoc_CS(n,k) = Assoc_CS2{n,k};
+
+SINR_AHP(n,k) = Mean_SINR_AHP2{n,k};
+SINR_CS(n,k) = Mean_SINR_CS2{n,k};
+
+end
+
+end
+
+Mean_AHP_time = mean(AHP_time, 1);
+Mean_CS_time = mean(CS_time, 1);
+
+Mean_Assoc_AHP = mean(Assoc_AHP, 1);
+Mean_Assoc_CS = mean(Assoc_CS, 1);
+
+Mean_SINR_AHP = mean(SINR_AHP, 1);
+Mean_SINR_CS = mean(SINR_CS, 1);
+
+figure
+
+hold on
+plot(N_users2, Mean_AHP_time,'--b', N_users2, Mean_CS_time,'--r')
+scatter(N_users2, Mean_AHP_time,'b*')
+scatter(N_users2, Mean_CS_time,'r*')
+%yscale("log")
+hold off
+
+
+figure
+
+hold on
+plot(N_users2, Mean_AHP_time,'--b')
+scatter(N_users2, Mean_AHP_time,'b*')
+%yscale("log")
+hold off
+
+
+figure
+
+hold on
+plot(N_users2, Mean_CS_time,'--r')
+scatter(N_users2, Mean_CS_time,'r*')
+%yscale("log")
+hold off
+
+figure
+
+hold on
+plot(N_users2, Mean_SINR_AHP,'--b', N_users2, Mean_SINR_CS,'--r')
+scatter(N_users2, Mean_SINR_AHP,'b*')
+scatter(N_users2, Mean_SINR_CS,'r*')
+%yscale("log")
+hold off
+
+
+%%
+
+% figure
+% 
+% hold on
+% 
+% b = bar(N_users2,[Zcap2; Pt2],'stacked','LineWidth',0.1,'FaceAlpha',0.6);
+% b(1).FaceColor = 'blue';
+% b(2).FaceColor = 'cyan';
+% 
+% yyaxis left
+% plot(N_users2, 10^3.*Rcap2,'k','LineWidth',2.0)
+% %xlabel("Number of Users (UEs)")
+% xticks([500, 1000, 1500, 2000, 2500, 3000, 3500, 4000])
+% xticklabels(["Z_{lim} = 3 " + "\newline" + "P_{t} = 23 dB" + "\newline" + "N_{UE} = 500", ...
+%     "Z_{lim} = 5" + "\newline" + "P_{t} = 20dB" + "\newline" + "N_{UE} = 1000", ...
+%     "Z_{lim} = 8" + "\newline" + "P_{t} = 18dB" + "\newline" + "N_{UE} = 1500", ...
+%     "Z_{lim} = 10" + "\newline" + "P_{t} = 17dB" + "\newline" + "N_{UE} = 2000", ...
+%     "Z_{lim} = 13" + "\newline" + "P_{t} = 17dB" + "\newline" + "N_{UE} = 2500", ...
+%     "Z_{lim} = 15" + "\newline" + "P_{t} = 16dB" + "\newline" + "N_{UE} = 3000", ...
+%     "Z_{lim} = 18" + "\newline" + "P_{t} = 15dB" + "\newline" + "N_{UE} = 3500", ...
+%     "Z_{lim} = 20" + "\newline" + "P_{t} = 15dB" + "\newline" + "N_{UE} = 4000"]);
+% ylabel('Cell Limit Radius (m)')
+% 
+% yyaxis right
+% plot(N_users2, AHP_time,'r','LineWidth',2.0)
+% plot(N_users2, CS_time, 'r','LineWidth',2.0,'LineStyle','--')
+% ylabel('Simulation Time (sec.)','Color','black')
+% % yscale("log")
+% 
+% legend(["$Z_{lim}$","$P_{t}$","Cell Radius $R_{lim}$","Running Time (UAV-AHP)","Running Time (CS)"],'FontSize',12,'Interpreter','latex','Location', ...
+%     'southoutside','Orientation','Horizontal')
+% 
+% a.TickLabelInterpreter = "latex";
+% xlim([250, 4250])
+% 
+% hold off
+% 
+% figure
+% hold on 
+% 
+% yyaxis left
+% plot(N_users2, SINR_AHP,'LineWidth',1.5)
+% plot(N_users2, SINR_CS,'LineWidth',1.5,'LineStyle','--')
+% xlabel("Number of Users (UEs)")
+% ylabel('Average SINR (dB)')
+% 
+% yyaxis right
+% plot(N_users2, 1-(Assoc_AHP./N_users2),'LineWidth',1.5)
+% plot(N_users2, 1-(Assoc_CS./N_users2),'LineWidth',1.5,'LineStyle','--')
+% ylabel('User Outage')
+% 
+% legend(["SINR (UAV-AHP)","SINR (CS)","Outage (UAV-AHP)","Outage (CS)"],'FontSize',12,'Interpreter','latex')
+% 
+% a.TickLabelInterpreter = "latex";
+% 
+% hold off
