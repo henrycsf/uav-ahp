@@ -3,7 +3,9 @@ clc
 
 nmi = 1000;
 
-Tol = 1;
+pop_size = 25;
+
+Tol = 1.01;
 
 plots = false;
 
@@ -18,7 +20,9 @@ plots = false;
 
 CaseSelect = 1;
 
-dir = '/home/henry-ferreira/Documentos/WORK/PeerJ_2/Trab final/';
+%Change dir to the root folder of the project in your PC
+
+dir = '\\maa1.cc.lut.fi\home\z143799\Documents\Projects\uav-ahp-main\';
 
 % % Adaptive-AHP and CS, Simulation 2
 
@@ -44,20 +48,32 @@ N_users2(k) = length(Users2{1,k});
 
 [Zcov2(k),Zcap2(k),Rcov2(k),Rcap2(k),Pt2(k)] = numerology(h2,X2,Y2,N_users2(k),delta_cov2, DataRate2, alpha2, beta2);
 
-[UAV2{1,k}, Best2{1,k}, AHP_time2{1,k}, Assoc2{1,k}, Mean_SINR_AHP2{1,k}, Mean_DD_AHP2{1,k}] = drone_positioning_AHP(CaseSelect, Pt2(k), N_users2(k), X2, ...
+[~, ~, Network_Metrics_AHP2(:,k), AHP_time2(:,k)] = drone_positioning_AHP(CaseSelect, Pt2(k), N_users2(k), X2, ...
     Y2, h2, DataRate2, Users2{1,k}, Demand2{1,k}, Zcov2(k), Zcap2(k), Rcov2(k), Rcap2(k), nmi, alpha2, beta2, plots);
 
-[bestnest2{1,k}, fmin2{1,k}, Assoc_CS2{1,k}, Mean_SINR_CS2{1,k}, Mean_DD_CS2{1,k}, Simulation_time_CS2{1,k}]=cs_positioning(CaseSelect, Pt2(k), N_users2(k), X2, ...
-    Y2, h2, DataRate2, Users2{1,k}, Demand2{1,k}, Zcov2(k), Zcap2(k), Rcov2(k), Rcap2(k), nmi, Tol, alpha2, beta2, plots);
+% [~,~, Network_Metrics_PSO2(:,k), PSO_time2(:,k)] = PSO(CaseSelect, Pt2(k), N_users2(k), X2, Y2, h2, DataRate2, ...
+%     Users2{1,k}, Demand2{1,k}, Zcov2(k), Zcap2(k), Rcov2(k), Rcap2(k), nmi, Tol, pop_size, alpha2, beta2, Network_Metrics_AHP2(:,k), plots);
 
-AHP_time(k) = AHP_time2{1,k};
-CS_time(k) = Simulation_time_CS2{1,k};
+% [~, ~, Network_Metrics_CS2(:,k), CS_time2(:,k)] = cs_positioning(CaseSelect, Pt2(k), N_users2(k), X2, Y2, h2, DataRate2, ...
+%     Users2{1,k}, Demand2{1,k}, Zcov2(k), Zcap2(k), Rcov2(k), Rcap2(k), nmi, Tol, pop_size, alpha2, beta2, Network_Metrics_AHP2(:,k), plots);
 
-Assoc_AHP(k) = Assoc2{1,k};
-Assoc_CS(k) = Assoc_CS2{1,k};
+[~, ~, Network_Metrics_NSGA2(:,k), NSGA_time2(:,k)] = nsga2_positioning(CaseSelect, Pt2(k), N_users2(k), X2, Y2, h2, DataRate2, ...
+    Users2{1,k}, Demand2{1,k}, Zcov2(k), Zcap2(k), Rcov2(k), Rcap2(k), nmi, Tol, pop_size, alpha2, beta2, Network_Metrics_AHP2(:,k), plots);
 
-SINR_AHP(k) = Mean_SINR_AHP2{1,k};
-SINR_CS(k) = Mean_SINR_CS2{1,k};
+AHP_time(k) = AHP_time2(1,k);
+% CS_time(k) = CS_time2(1,k);
+% PSO_time(k) = PSO_time2(1,k);
+NSGA_time(k) = NSGA_time2(1,k);
+
+Assoc_AHP(k) = Network_Metrics_AHP2(4,k);
+% Assoc_CS(k) = Network_Metrics_CS2(4,k);
+% Assoc_PSO(k) = Network_Metrics_PSO2(4,k);
+Assoc_NSGA(k) = Network_Metrics_NSGA2(4,k);
+
+SINR_AHP(k) = Network_Metrics_AHP2(1,k);
+% SINR_CS(k) = Network_Metrics_CS2(1,k);
+% SINR_PSO(k) = Network_Metrics_PSO2(1,k);
+SINR_NSGA(k) = Network_Metrics_NSGA2(1,k);
 
 end
 
@@ -84,13 +100,11 @@ ylabel('Cell Limit Radius (m)')
 
 yyaxis right
 plot(N_users2, AHP_time,'r','LineWidth',2.0)
-plot(N_users2, CS_time, 'r','LineWidth',2.0,'LineStyle','--')
+plot(N_users2, NSGA_time, 'r','LineWidth',2.0,'LineStyle','--')
 ylabel('Simulation Time (sec.)','Color','black')
-c = yticklabels(['10','','',''])
-c.Color = 'black';
 yscale("log")
 
-legend(["$Z_{lim}$","$P_{t}$","Cell Radius $R_{lim}$","Running Time (UAV-AHP)","Running Time (CS)"],'FontSize',12,'Interpreter','latex','Location', ...
+legend(["$Z_{lim}$","$P_{t}$","Cell Radius $R_{lim}$","Running Time (UAV-AHP)","Running Time (NSGA-II)"],'FontSize',12,'Interpreter','latex','Location', ...
     'southoutside','Orientation','Horizontal')
 
 a.TickLabelInterpreter = "latex";
@@ -103,16 +117,16 @@ hold on
 
 yyaxis left
 plot(N_users2, SINR_AHP,'LineWidth',1.5)
-plot(N_users2, SINR_CS,'LineWidth',1.5,'LineStyle','--')
+plot(N_users2, SINR_NSGA,'LineWidth',1.5,'LineStyle','--')
 xlabel("Number of Users (UEs)")
 ylabel('Average SINR (dB)')
 
 yyaxis right
 plot(N_users2, 1-(Assoc_AHP./N_users2),'LineWidth',1.5)
-plot(N_users2, 1-(Assoc_CS./N_users2),'LineWidth',1.5,'LineStyle','--')
+plot(N_users2, 1-(Assoc_NSGA./N_users2),'LineWidth',1.5,'LineStyle','--')
 ylabel('User Outage')
 
-legend(["SINR (UAV-AHP)","SINR (CS)","Outage (UAV-AHP)","Outage (CS)"],'FontSize',12,'Interpreter','latex')
+legend(["SINR (UAV-AHP)","SINR (NSGA-II)","Outage (UAV-AHP)","Outage (NSGA-II)"],'FontSize',12,'Interpreter','latex')
 
 a.TickLabelInterpreter = "latex";
 

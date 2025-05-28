@@ -1,0 +1,384 @@
+function [global_solution,global_best, final_metrics, Simulation_time_PSO] = PSO(CaseSelect, Pt, numUsers, X, Y, h, DataRate, ...
+    users, demand, Zcov, Zcap, Rcov, Rcap, maxIter, Tol, numParticles, alpha, beta, normal_values, plots)
+
+tic
+
+% Problem & PSO Settings
+
+dim = 2;                % Dimension of the problem [x, y]
+
+numUsers = length(users);
+
+R_limit = min(Rcov, Rcap)*10^3;
+
+N_UAV = max(Zcov, Zcap);
+
+UAV_Lb = [0 0];
+UAV_Ub = [X Y];
+
+lb = [];
+ub = [];
+
+% Weights for the different objectives / criteria
+
+switch CaseSelect
+    case 1
+        weights = [0.5559, 0.1364, 0.0489, 0.2589];
+    case 2
+        weights = [0.1404, 0.5805, 0.1365, 0.1427];
+    case 3
+        weights = [0.1558, 0.0856, 0.0491, 0.7095];
+end
+
+% Simple bounds of the search domain
+
+for r = 1:1:N_UAV
+% Lower bounds
+lb = horzcat(lb,UAV_Lb);
+% Upper bounds
+ub = horzcat(ub,UAV_Ub);
+end
+
+% PSO parameters
+w = 0.5;                % Inertia weight
+c1 = 1;               % Cognitive (personal best) coefficient
+c2 = 1.5;               % Social (global best) coefficient
+
+%% Initialize Swarm
+% Random initialization in the bounded search space
+positions = rand(numParticles, length(lb)) .* (ub - lb) + lb;
+velocities = zeros(numParticles, length(lb));
+
+%% Initialize Personal Bests & Archive for Non-dominated Solutions
+pBest = positions;
+pBest_fitness = zeros(numParticles, 4); % Each row: [SINR, TP, Demand, Coverage]
+for i = 1:numParticles
+    [z1, z2, z3, z4, SINR_sol] = objective(positions(i,:), users);
+    pBest_fitness(i,:) = [z1, z2, z3, z4];
+end
+
+% Archive to store Pareto optimal (non-dominated) solutions
+archive = [];
+archive_fitness = [];
+SINR_max = [];
+
+iter = 0;
+global_best = 0;
+
+%% Main MOPSO Loop
+while (iter < maxIter) && (global_best < Tol)
+    % Evaluate each particle and update personal bests and archive
+    for i = 1:numParticles
+        [z1, z2, z3, z4, SINR_sol] = objective(positions(i,:), users);
+        currentFit = [z1, z2, z3, z4];
+        
+        % Update personal best using dominance check
+        if dominates(currentFit, pBest_fitness(i,:))
+            pBest(i,:) = positions(i,:);
+            pBest_fitness(i,:) = currentFit;
+            fmin(i) = weights(1)*pBest_fitness(i,1)+weights(2)*pBest_fitness(i,2) ...
+                +weights(3)*pBest_fitness(i,3)+weights(4)*pBest_fitness(i,4);
+            if fmin(i) > global_best
+                global_best = fmin(i);
+                global_solution = pBest(i,:);
+                SINR_max = SINR_sol;
+                final_metrics = [pBest_fitness(i,1)*normal_values(1), pBest_fitness(i,2)*normal_values(2), pBest_fitness(i,3)*normal_values(3), pBest_fitness(i,4)*normal_values(4)];
+            end
+       end
+        
+        % Update external archive with non-dominated solutions
+        [archive, archive_fitness] = updateArchive(archive, archive_fitness, positions(i,:), currentFit);
+    end
+    
+    % Update particles' velocities and positions
+    for i = 1:numParticles
+        % Select a leader from the archive (here, randomly)
+        leader = selectLeader(archive, archive_fitness);
+        r1 = rand(1, length(lb));
+        r2 = rand(1, length(lb));
+        velocities(i,:) = w * velocities(i,:) ...
+            + c1 * r1 .* (pBest(i,:) - positions(i,:)) ...
+            + c2 * r2 .* (leader - positions(i,:));
+        positions(i,:) = positions(i,:) + velocities(i,:);
+        
+        % Enforce the search space boundaries
+        positions(i,:) = max(positions(i,:), lb);
+        positions(i,:) = min(positions(i,:), ub);
+    end
+    
+    % (Optional) Display progress
+    if plots == true
+        fprintf('Iteration %d completed. Archive size: %d\n', iter, size(archive,1));
+    end
+    
+    iter = iter + 1;
+end
+
+Simulation_time_PSO = toc;
+
+if plots == true
+    % Display Final Non-dominated (Pareto Optimal) Solutions
+    disp('Non-dominated solutions (UAV positions):');
+    disp(archive);
+    disp('Their corresponding fitness values [SINR, TP, Demand, Coverage]:');
+    disp(archive_fitness);
+    
+    X_CS = [];
+    Y_CS = [];
+    
+    for i = 1:2:length(global_solution)
+    
+        X_CS = horzcat(X_CS,global_solution(i));
+        Y_CS = horzcat(Y_CS,global_solution(i+1));
+    
+    end
+    
+    CEN_CS = transpose([X_CS; Y_CS]);
+    
+    for i = 1:1:length(global_solution)/2
+        Rad(1,i) = R_limit;
+    end
+    
+    figure
+    hold on
+    colorbar
+    title('SINR (dB) by PSO');
+    scatter(users(:,1),users(:,2), 40, SINR_max, "filled", "MarkerFaceAlpha", 0.85)
+    xlabel('x (km)') 
+    ylabel('y (km)')
+    viscircles(CEN_CS,Rad, 'LineStyle', '--', 'LineWidth', 1, 'Color', 'red');
+    scatter(X_CS(1,:),Y_CS(1,:), 400, 'pentagram', 'MarkerEdgeColor', 'red', 'linewidth', 1.5)
+    rectangle('Position', [0 0 X Y])
+    axis([-X/10 X+X/10 -Y/10 Y+Y/10])
+    daspect([1 1 1])
+    xlabel('x (m)') 
+    ylabel('y (m)')
+    hold off
+end
+
+%% Objective Function
+function [z1, z2, z3, z4, SINR_max] = objective(uavPos, users)
+    % Parameters for UAV transmission
+
+    DronePop = zeros(2,N_UAV);
+
+    for e = 1:2:2*N_UAV
+        DronePop(:,(e+1)/2) = [uavPos(1,e);uavPos(1,e+1)];
+    end
+    
+    N_users = length(users);
+    
+    f = 3.5 * 10^9;
+    velc = 299792458;
+    ZetaLOS = 1;
+    ZetaNLOS = 20;
+    B = [50*10^6 20*10^6 10*10^6];
+    q = -174 + 10*log10(B);
+    
+    Gt = 3;
+    Gr = 0;
+
+    for b = 1:1:N_UAV
+        for k = 1:1:N_users
+    
+            D(k,b) = sqrt(((users(k,1)-DronePop(1,b)).^2) + (users(k,2)-DronePop(2,(b))).^2 + h.^2);
+            R(k,b) = sqrt(abs(((users(k,1)-DronePop(1,b)).^2) + (users(k,2)-DronePop(2,(b))).^2));
+            Demand_Density(k,b) = demand(k)./(D(k,b).^2);
+    
+             switch demand(k)
+        
+                 case DataRate(1)
+                     User_Service(k) = 1;
+                     
+                 case DataRate(2)
+                     User_Service(k) = 2;
+        
+                 case DataRate(3)
+                     User_Service(k) = 3;
+        
+                 otherwise
+                     error("Out of service");
+             end
+    
+        end
+    end
+
+    theta = atan(h./R);
+
+    Z = (alpha*exp(-beta*((180/pi).*theta - alpha)));
+
+    PL = 20*log10((4*pi*f*D./velc))+((ZetaLOS+Z.*ZetaNLOS)./(1+Z));
+
+    Pr_user = Pt - PL + Gt + Gr;
+
+    Pr_Linear = (10.^((Pr_user-30)./10));
+
+    % SINR Estimation
+
+    for k = 1:1:N_UAV
+
+        for j = 1:1:N_users
+
+            inter = 0;
+
+                for m = 1:1:N_UAV
+
+                    if (k ~= m)
+    
+                        inter = inter + Pr_Linear(j,m);
+    
+                    end
+                end
+
+            Interference_lin(j,k) = inter;
+
+            Interference(j,k) = 10*log10(inter);
+
+            switch demand(j)
+
+                case DataRate(1)
+                if R(j,k) > R_limit
+                    SINR_lin(j,k) = 0;
+                    TP(j,k) = 0;
+                else
+                    SINR_lin(j,k) = Pr_Linear(j,k) / ((10^((q(1)-30)/10)) + inter);
+                    SNR_lin(j,k) = Pr_Linear(j,k) / ((10^((q(1)-30)/10)));
+                    TP(j,k) = (10^-6) * (B(1))*log2(1+SNR_lin(j,k));
+                end
+
+                SINR(j,k) = 10.*log10(SINR_lin(j,k));
+
+                case DataRate(2)
+
+                if R(j,k) > R_limit
+                    SINR_lin(j,k) = 0;
+                    TP(j,k) = 0;
+                else
+                    SINR_lin(j,k) = Pr_Linear(j,k) / ((10^((q(2)-30)/10)) + inter);
+                    SNR_lin(j,k) = Pr_Linear(j,k) / ((10^((q(2)-30)/10)));
+                    TP(j,k) = (10^-6) * (B(2))*log2(1+SNR_lin(j,k));
+                end
+
+                SINR(j,k) = 10.*log10(SINR_lin(j,k));
+
+                case DataRate(3)
+
+                if R(j,k) > R_limit
+                    SINR_lin(j,k) = 0;
+                    TP(j,k) = 0;
+                else
+                    SINR_lin(j,k) = Pr_Linear(j,k) / ((10^((q(3)-30)/10)) + inter);
+                    SNR_lin(j,k) = Pr_Linear(j,k) / ((10^((q(3)-30)/10)));
+                    TP(j,k) = (10^-6) * (B(3))*log2(1+SNR_lin(j,k));
+                end
+
+                SINR(j,k) = 10.*log10(SINR_lin(j,k));
+
+            end
+
+        end
+
+    end
+
+    Assoc = 0;
+    
+    % for j = 1:1:size(SINR, 3)
+    % 
+    %     SINR_positioning(:,j) = SINR(:,j);
+    %     TP_positioning(:,j) = TP(:,j);
+    %     R_positioning(:,j) = R(:,j);
+    % 
+    % end
+    
+    Demand_max = max(Demand_Density,[],2);
+    SINR_lin_max = max(SINR_lin,[],2);
+    SINR_max = 10.*log10(SINR_lin_max);
+    TP_max = max(TP,[],2);
+    R_min = min(R,[],2);
+    
+    for k = 1:1:size(users,1)
+    
+         if SINR_max(k,1) >= -10 && TP_max(k,1) > 0 && R_min(k,1) <= R_limit
+            
+             Assoc = Assoc + 1;
+
+             if User_Service(k) == 1
+                
+                 TP_eMBB = TP_eMBB + ;
+             end
+        end
+    
+    end
+    
+    Mean_SINR_lin = mean(SINR_lin_max,1);
+    
+    Mean_SINR = 10*log10(Mean_SINR_lin);
+    
+    Mean_TP = mean(TP_max,1);
+    
+    TP_eMBB = 0;
+    Assoc_eMBB = 0;
+    
+    for k = 1:length(TP_max)
+        if User_Service(k) == 1
+    
+            TP_eMBB = TP_eMBB + TP_max(k);
+            Assoc_eMBB = Assoc_eMBB + 1;
+        end
+    end
+    
+    Mean_TP_eMBB = TP_eMBB/Assoc_eMBB;
+    
+    Mean_DD = mean(Demand_max,1);
+    
+    % Cost Functions
+    
+    z1 = Mean_SINR/normal_values(1);
+    
+    z2 = Mean_TP_eMBB/normal_values(2);
+    
+    z3 = Mean_DD/normal_values(3);
+    
+    z4 = Assoc/normal_values(4);
+
+    z = [z1, z2, z3, z4];
+end
+
+%% Dominance Check Function
+% Returns true if fit1 dominates fit2
+function flag = dominates(fit1, fit2)
+    flag = all(fit1 >= fit2) && any(fit1 > fit2);
+end
+
+%% Archive Update Function
+function [archive, archive_fitness] = updateArchive(archive, archive_fitness, particle, fitness)
+    % Adds a particle to the archive if it is non-dominated
+    dominated = false;
+    removeIndices = [];
+    for j = 1:size(archive, 1)
+        if dominates(fitness, archive_fitness(j,:))
+            removeIndices = [removeIndices, j];
+        elseif dominates(archive_fitness(j,:), fitness)
+            dominated = true;
+            break;
+        end
+    end
+    if ~dominated
+        archive = [archive; particle];
+        archive_fitness = [archive_fitness; fitness];
+        % Remove dominated particles already in the archive
+        if ~isempty(removeIndices)
+            archive(removeIndices,:) = [];
+            archive_fitness(removeIndices,:) = [];
+        end
+    end
+end
+
+%% Leader Selection Function
+% Selects a leader from the archive (random selection in this simple example)
+function leader = selectLeader(archive, ~)
+    idx = randi(size(archive, 1));
+    leader = archive(idx,:);
+end
+
+end

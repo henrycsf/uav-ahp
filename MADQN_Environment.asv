@@ -1,0 +1,145 @@
+classdef MADQN_Environment < rl.env.MATLABEnvironment
+    properties
+        numUAVs
+        numUEs
+        height
+        areaSizeX
+        areaSizeY
+        stepSize
+        UAVPositions
+        UEPositions
+        demandVector
+        maxSteps = 9;
+        SINRThreshold = -10 % SINR minimum threshold in dB
+    end
+    
+    properties (Access = private)
+        currentStep = 0;
+    end
+
+    methods
+        function obj = MADQN_Environment(numUAVs, numUEs, UEPositions, UAVPositions, demandVector, height, areaSizeX, areaSizeY, stepSize)
+            obsDim = numUAVs * 2;
+            jointNumActions = 5^numUAVs;
+            actionInfo = rlFiniteSetSpec(1:jointNumActions);
+            observationInfo = rlNumericSpec([obsDim 1], 'LowerLimit', 0, 'UpperLimit', areaSize);
+            obj@rl.env.MATLABEnvironment(observationInfo, actionInfo);
+            obj.numUAVs = numUAVs;
+            obj.numUEs = numUEs;
+            obj.height = height;
+            obj.areaSizeX = areaSizeX;
+            obj.areaSizeY = areaSizeY;
+            obj.stepSize = stepSize;
+            obj.demandVector = demandVector;
+            obj.UEPositions = UEPositions;
+            obj.UAVPositions = UAVPositions;
+            obj.InitialPositions = UAVPositions;
+        end
+
+        % function state = reset(obj)
+        %     % Use k-means clustering on UE positions to initialize UAV positions.
+        %     % If you want to weight the clustering by demand, you can supply the 'Weights' parameter
+        %     % (available in recent MATLAB versions). Otherwise, a simple k-means clustering is performed.
+        % 
+        %     obj.UEPositions = obj.UEPositions + (5*randn(obj.numUEs,2));
+        % 
+        %     try
+        %         % If your MATLAB version supports weights:
+        %         [idx, centers] = kmeans(obj.UEPositions, obj.numUAVs, 'Replicates', 5, 'Weights', obj.demandVector);
+        %     catch
+        %         % If weights are not supported, just cluster by position.
+        %         [idx, centers] = kmeans(obj.UEPositions, obj.numUAVs, 'Replicates', 5);
+        %     end
+        % 
+        %     % Ensure the centers are within the area boundaries.
+        %     centers = max(min(centers, obj.areaSize), 0);
+        % 
+        %     obj.UAVPositions = centers;  % Set initial UAV positions to the cluster centers.
+        %     obj.currentStep = 0;
+        %     state = obj.UAVPositions(:); % Return state as a vector.
+        % end
+        
+        function state = reset(obj)
+            obj.UAVPositions = obj.InitialPositions;
+            obj.UEPositions = obj.UEPositions + (4*randn(obj.numUEs,2));
+            obj.currentStep = 0;
+            state = obj.UAVPositions(:);
+        end
+        
+        function [nextState, reward, done] = step(obj, jointAction)
+            base = 5;
+            actions = zeros(obj.numUAVs,1);
+            temp = jointAction - 1;
+            for uav = 1:obj.numUAVs
+                actions(uav) = mod(temp, base) + 1;
+                temp = floor(temp / base);
+            end
+            movement = [0, obj.stepSize(2); 0, -obj.stepSize(2); -obj.stepSize(1), 0; obj.stepSize(1), 0; 0, 0];
+            for uav = 1:obj.numUAVs
+                moveVec = movement(actions(uav), :);
+                obj.UAVPositions(uav,:) = obj.UAVPositions(uav,:) + moveVec;
+            end
+
+            obj.UAVPositions = max(min(obj.UAVPositions, obj.areaSizeX, obj.areaSizeY), 0);
+
+            [coverage, SINR, throughput, demand] = obj.evaluateCoverage();
+            normalSINR = (SINR - (-10)) / (40 - (-10));
+            normalTP = (throughput - 0) / 600;
+            normalDemand = (demand - 30) / 30;
+
+            punishment = sum(all(obj.UAVPositions == 0, 2) | all(obj.UAVPositions == obj.areaSizeX, 2)) * 0.1;
+            reward = 10*(coverage + normalSINR + normalTP + normalDemand - punishment);
+            
+            nextState = obj.UAVPositions(:);
+            obj.currentStep = obj.currentStep + 1;
+            done = (obj.currentStep >= obj.maxSteps);
+        end
+        
+        function [coverage, SINR, throughput, demand] = evaluateCoverage(obj)
+            f = 3.5 * 10^9;
+            velc = 299792458;
+            ZetaLOS = 1;
+            ZetaNLOS = 20;
+            BW = [50*10^6 20*10^6 10*10^6];
+            q = -174 + 10*log10(BW);
+            Gt = 3;
+            Gr = 0;
+            h = obj.height;
+            Pt = 35;
+            alpha = 4.88;
+            beta = 0.43;
+            BW = 6*10^6;
+            SINR = 0;
+            coverage = 0;
+            demand = 0;
+            throughput = 0;
+            for ue = 1:obj.numUEs
+
+                R = vecnorm(obj.UAVPositions - obj.UEPositions(ue, :), 2, 2);
+                demandDensity = obj.demandVector(ue)/(R.^2);
+                theta = atan(h./R);
+                Z = (alpha*exp(-beta*((180/pi).*theta - alpha)));
+                PL = 20*log10((4*pi*f*R./velc))+((ZetaLOS+Z.*ZetaNLOS)./(1+Z));
+                signalStrength = Pt - PL + Gt + Gr;
+
+                linearSSRI = (10.^((signalStrength-30)./10));
+                interference = sum(linearSSRI)-max(linearSSRI);
+                maxLinearSINR = max(linearSSRI)/((10^((q(1)-30)/10)) + interference);
+                maxLinearSNR = max(linearSSRI)/(10^((q(1)-30)/10));
+                maxSINR = 10.*log10(maxLinearSINR);
+                maxTP = (10^-6)*BW*log2(1+maxLinearSNR);
+
+                if maxSINR > obj.SINRThreshold
+                    coverage = coverage + 1;
+                    SINR = SINR + maxSINR;
+                    throughput = throughput + maxTP;
+                    demand = demand + max(demandDensity);
+                end
+            end
+            coverage = coverage / obj.numUEs;
+            SINR = SINR / obj.numUEs;
+            throughput = throughput / obj.numUEs;
+            demand = demand / obj.numUEs;
+        end
+    end
+end

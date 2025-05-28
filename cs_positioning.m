@@ -1,5 +1,5 @@
-function [bestnest,fmin, Assoc, Mean_SINR, Mean_TP_eMBB, Simulation_time_CS]=cs_positioning(CaseSelect, Pt, N_users, X, Y, h, DataRate, ...
-    Users, Demand, Zcov, Zcap, Rcov, Rcap, Nmi, Tol, alpha, beta, plots)
+function [bestnest, fmin, final_metrics, Simulation_time_CS]=cs_positioning(CaseSelect, Pt, N_users, X, Y, h, DataRate, ...
+    Users, Demand, Zcov, Zcap, Rcov, Rcap, Nmi, Tol, n, alpha, beta, normal_values, plots)
 
 tic
 
@@ -17,8 +17,6 @@ N_UAV = UAV_limit;
 Lb = [];
 Ub = [];
 
-n = 25;
-
 % Discovery rate of alien eggs/solutions
 pa = 0.25;
 %D;T1;T2;W1;W2
@@ -32,7 +30,12 @@ Lb = horzcat(Lb,UAV_Lb);
 Ub = horzcat(Ub,UAV_Ub);
 end
 
-nest = ones(n, length(Lb));
+nest = [];
+Mean_TP_eMBB = [];
+Mean_DD = [];
+vetorbest = [];
+vetormediafmin = [];
+final_metrics = zeros(1,4);
 
 % Random initial solutions
 for i=1:n
@@ -46,7 +49,7 @@ N_iter=0;
 
 %% Starting iterations
 c = 1;
-while (- fmin < Tol && c < Nmi)
+while ((c < Nmi) && (- fmin < Tol || final_metrics(4) < normal_values(4))) || (c <= 2)
     % Generate new solutions (but keep the current best)
      new_nest=get_cuckoos(nest,bestnest,Lb,Ub);   
      [fnew,best,nest,fitness]=get_best_nest(nest,new_nest,fitness);
@@ -65,10 +68,13 @@ while (- fmin < Tol && c < Nmi)
       
     % Find the best objective so far  
     if fnew<fmin
-        fmin=fnew;
         bestnest=best;
+        [fmin, SINR_max, final_metrics] = fobj(best);
 
-        [fnew, Assoc, Mean_SINR, SINR_max] = fobj(best);
+    else
+        if -fmin > Tol
+            [fmin, SINR_max, final_metrics] = fobj(bestnest);
+        end
 
     end
     
@@ -77,6 +83,8 @@ while (- fmin < Tol && c < Nmi)
 
     c = c + 1;
 end %% End of iterations
+
+Simulation_time_CS = toc;
 
 %% Post-optimization processing
 %% Display all the nests
@@ -111,11 +119,11 @@ if plots == true
     hold on
     colorbar
     title('SINR (dB) by Cuckoo Search');
-    scatter(Users(:,1),Users(:,2), 20, SINR_max, "filled")
+    scatter(Users(:,1),Users(:,2), 40, SINR_max, "filled", "MarkerFaceAlpha", 0.85)
     xlabel('x (km)') 
     ylabel('y (km)')
     viscircles(CEN_CS,Rad, 'LineStyle', '--', 'LineWidth', 1, 'Color', 'red');
-    scatter(X_CS(1,:),Y_CS(1,:), 250, 'diamond', 'MarkerEdgeColor', 'red', 'linewidth', 2)
+    scatter(X_CS(1,:),Y_CS(1,:), 400, 'pentagram', 'MarkerEdgeColor', 'red', 'linewidth', 1.5)
     rectangle('Position', [0 0 X Y])
     axis([-X/10 X+X/10 -Y/10 Y+Y/10])
     daspect([1 1 1])
@@ -124,8 +132,6 @@ if plots == true
     hold off
 
 end
-
-Simulation_time_CS = toc;
 
 %% --------------- All subfunctions are listed below ------------------
 %% Get cuckoos by ramdom walk
@@ -169,7 +175,7 @@ end
 function [fmin,best,nest,fitness]=get_best_nest(nest,newnest,fitness)
 % Evaluating all new solutions
 for j=1:size(nest,1)
-    [fnew, Assoc, Mean_SINR, SINR_max] = fobj(newnest(j,:));
+    [fnew, ~, ~] = fobj(newnest(j,:));
     if fnew<=fitness(j)
        fitness(j)=fnew;
        nest(j,:)=newnest(j,:);
@@ -219,7 +225,7 @@ end
 
 %% You can replace the following by your own functions
 % A d-dimensional objective function
-function [z, Assoc, Mean_SINR, SINR_max] = fobj(u)
+    function [z, SINR_max, metrics] = fobj(u)
 
 DronePop = zeros(2,N_UAV);
 
@@ -342,6 +348,8 @@ end
     end
 
 Assoc = 0;
+TP_eMBB = 0;
+eMBB_count = 0;
 
 % for j = 1:1:size(SINR, 3)
 % 
@@ -351,71 +359,57 @@ Assoc = 0;
 % 
 % end
 
-Demand_max = max(Demand_Density,[],2);
-SINR_lin_max = max(SINR_lin,[],2);
-SINR_max = max(SINR,[],2);
-TP_max = max(TP,[],2);
-R_min = min(R,[],2);
+    Demand_max = max(Demand_Density,[],2);
+    SINR_lin_max = max(SINR_lin,[],2);
+    SINR_max = 10.*log10(SINR_lin_max);
+    TP_max = max(TP,[],2);
+    R_min = min(R,[],2);
+    
+    for k = 1:1:size(Users,1)
+    
+         if SINR_max(k,1) >= -10 && TP_max(k,1) > 0 && R_min(k,1) <= R_limit
+            
+             Assoc = Assoc + 1;
+            
+            if User_Service(k) == 1
+                TP_eMBB = TP_eMBB + TP_max(k);
+                 eMBB_count = eMBB_count + 1;
+            end
 
-for k = 1:1:size(Users,1)
-
-     if SINR_max(k,1) >= -10 && TP_max(k,1) > 0 && R_min(k,1) <= R_limit
-        
-         Assoc = Assoc + 1;
+        end
+    
     end
+    
+    Mean_SINR_lin = mean(SINR_lin_max,1);
+    
+    Mean_SINR = 10*log10(Mean_SINR_lin);
 
-end
-
-SINR_lin_normal = (SINR_lin - min(SINR_lin,[],2))./(max(SINR_lin,[],2)-min(SINR_lin,[],2));
-
-TP_normal = (TP - min(TP,[],2))./(max(TP,[],2)-min(TP,[],2));
-
-Demand_normal = (Demand_Density - min(Demand_Density,[],2))./(max(Demand_Density,[],2)-min(Demand_Density,[],2));
-
-Coverage_Normal = (Assoc - 0) ./ (N_users - 0);
-
-Mean_SINR_lin = mean(SINR_lin_max,1);
-
-Mean_SINR = 10*log10(Mean_SINR_lin);
-
-Mean_TP = mean(TP_max,1);
-
-TP_eMBB = 0;
-Assoc_eMBB = 0;
-
-for k = 1:length(TP_max)
-    if User_Service(k) == 1
-
-        TP_eMBB = TP_eMBB + TP_max(k);
-        Assoc_eMBB = Assoc_eMBB + 1;
-    end
-end
-
-Mean_TP_eMBB = TP_eMBB/Assoc_eMBB;
-
-Mean_DD = mean(Demand_max,1);
-
-% Cost Functions
-
-z1 = -mean(max(SINR_lin_normal,[],2),1,"omitnan");
-
-z2 = -mean(max(TP_normal,[],2),1,"omitnan");
-
-z3 = -mean(max(Demand_normal,[],2),1,"omitnan");
-
-z4 = -mean(max(Coverage_Normal,[],2),1,"omitnan");
+    Mean_TP_eMBB = TP_eMBB/eMBB_count;
+    
+    Mean_DD = mean(Demand_max,1);
+    
+    % Cost Functions
+    
+    z1 = -Mean_SINR/normal_values(1);
+    
+    z2 = -Mean_TP_eMBB/normal_values(2);
+    
+    z3 = -Mean_DD/normal_values(3);
+    
+    z4 = -Assoc/normal_values(4);
 
     switch CaseSelect
         case 1
             z = 0.5559*z1 + 0.1364*z2 + 0.0489*z3 + 0.2589*z4;
         case 2
-            z = 0.1404*z1 + 0.5805*z2 + 0.1365*z3 + 0.1427*z4;
+            z = 0.0834*z1 + 0.6259*z2 + 0.2229*z3 + 0.0678*z4;
         case 3
             z = 0.1558*z1 + 0.0856*z2 + 0.0491*z3 + 0.7095*z4;
         otherwise
             error("CaseSelect value not allowed. Please put 1, 2 or 3.")
     end
 
+    metrics = [Mean_SINR, Mean_TP_eMBB, Mean_DD, Assoc];
 end
 
 end

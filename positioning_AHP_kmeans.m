@@ -1,4 +1,4 @@
-function [UAV, Best, final_metrics, AHP_time] = drone_positioning_AHP(CaseSelect, Pt, N_users, X, Y, h, DataRate, ...
+function [UAV, Best, AHP_time, Assoc, Avg_SINR_final, Avg_TP_final] = positioning_AHP_kmeans(CaseSelect, Pt, N_users, X, Y, h, DataRate, ...
     Users, Demand, Zcov, Zcap, Rcov, Rcap, nmi, alpha, beta, plots)
 
 tic
@@ -21,7 +21,7 @@ Center = [];
 cnst=true;
 vis=false;
 
-Step = 0.4*[X/max([X Y]) * R_limit, Y/(max([X Y])) * R_limit];
+Step = 0.3*[X/max([X Y]) * R_limit, Y/(max([X Y])) * R_limit];
 
 if R_limit < X && R_limit < Y
     dist = (sqrt(2)*R_limit/sqrt(X^2+Y^2));
@@ -29,18 +29,25 @@ else
     dist = 0;
 end
 
-while size(Center,1) ~= UAV_limit
-[Center] = ([(1-(1/UAV_limit))*X (1-(1/UAV_limit))*Y] .* random_min_spacing(UAV_limit, dist, vis)) + Step;
+try
+    % If your MATLAB version supports weights:
+    [idx, Center] = kmeans(Users, UAV_limit, 'Replicates', 1, 'Weights', Demand);
+catch
+    % If weights are not supported, just cluster by position.
+    [idx, Center] = kmeans(Users, UAV_limit, 'Replicates', 1);
 end
+
+% while size(Center,1) ~= UAV_limit
+% [Center] = ([(1-(1/UAV_limit))*X (1-(1/UAV_limit))*Y] .* random_min_spacing(UAV_limit, dist, vis)) + Step;
+% end
 
 N_UAV = length(Radius);
 
 switch CaseSelect
-    % C = [C12, C13, C14, C23, C24, C34]
     case 1
-    C = [7; 7; 5; 3; 1/5; 1/5];
+    C = [5; 7; 3; 5; 1/3; 1/5];
     case 2
-    C = [1/7; 1/7; 1/5; 3; 3; 3];
+    C = [1/5; 3; 1/3; 7; 5; 3];
     case 3
     C = [3; 3; 1/7; 3; 1/9; 1/9];
 
@@ -135,23 +142,19 @@ while (n < nmi)
 
     Assoc_Matrix = zeros(1,Pos_points,N_UAV);
 
-    TP_eMBB = zeros(1,Pos_points,N_UAV);
-
-    eMBB_count = zeros(1,Pos_points,N_UAV);
-
 for i = 1:1:N_UAV
 
     for b = 1:1:Pos_points
 
             for j = 1:1:N_users
 
-                inter = 0;
+            inter = 0;
 
                 for m = 1:1:N_UAV
 
                     if (i ~= m)
     
-                        inter = inter + Pr_Linear(j,Best(1,2,m),m);
+                        inter = inter + Pr_Linear(j,Best(1,2,i),m);
     
                     end
                 end
@@ -241,7 +244,7 @@ for b = 1:1:Pos_points
         
         R_min_altered = min(R_positioning_altered,[],2);
 
-        [SINR_max_altered, bestUAV] = max(SINR_positioning_altered,[],2);
+        SINR_max_altered = max(SINR_positioning_altered,[],2);
         TP_max_altered = max(TP_positioning_altered,[],2);
 
     for k = 1:1:size(Users,1)
@@ -250,18 +253,12 @@ for b = 1:1:Pos_points
                 && TP_max_altered(k,1) > 0
             
             Assoc_Matrix(1,b,i) = Assoc_Matrix(1,b,i) + 1;
-
-            %[~, bestUAV] = max( SINR_positioning_altered(k,:) );
-
-            if bestUAV(k) == i && User_Service(k) == 1
-                TP_eMBB(1,b,i)    = TP_eMBB(1,b,i) + TP_positioning_altered(k,i);
-                eMBB_count(1,b,i) = eMBB_count(1,b,i) + 1;
-           end
-
-        end
     
+        end
     end
 end
+
+Mean_SINR = mean(SINR,1);
 
 Mean_SINR_lin = mean(SINR_lin,1);
 
@@ -273,8 +270,6 @@ end
 
 Mean_TP = mean(TP,1);
 
-Mean_TP_eMBB = TP_eMBB ./ eMBB_count;
-
 Mean_Demand = mean(Demand_Density,1);
 
 Mean_Interference = mean(Interference,1);
@@ -284,7 +279,7 @@ Mean_Interference_lin = mean(Interference_lin,1);
 
 %% Apply AHP to decide the best spot
 
-B = transpose([Mean_SINR_lin(:,:,i); Mean_TP_eMBB(:,:,i); Mean_Demand(:,:,i); Mean_Coverage(:,:,i)]);
+B = transpose([Mean_SINR_lin(:,:,i); Mean_TP(:,:,i); Mean_Demand(:,:,i); Mean_Coverage(:,:,i)]);
 
 names = {'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9'};
 
@@ -292,9 +287,9 @@ criteria_names = {'SINR';'Throughput';'Demand per Point'; 'Coverage'};
 
 % AHP function
 
-[h, c, a] = ahp([], C, 'beneficial', B, 'names', names, 'criterianames', criteria_names, 'normalization', 'minmax');
+[weight, c, a] = ahp([], C, 'beneficial', B, 'names', names, 'criterianames', criteria_names, 'normalization', 'minmax');
 
-Weights(:,i) = table2array(h);
+Weights(:,i) = table2array(weight);
 
 [User(:,:,i), I(:,:,i)] = max(Weights(:,i));
 
@@ -305,7 +300,7 @@ Sol(:,:,i) = [User(:,:,i), I(:,:,i)];
 SINR_positioning_final(:,i) = SINR(:,Best(1,2,i),i);
 SINR_lin_positioning_final(:,i) = SINR_lin(:,Best(1,2,i),i);
 
-SINR_max_final = max(10.*log10(SINR_lin_positioning_final),[],2);
+SINR_max_final = max(SINR_positioning_final,[],2);
 SINR_lin_max_final = max(SINR_lin_positioning_final,[],2);
 
 Avg_SINR_final = 10.*log10(mean(SINR_lin_max_final));
@@ -317,18 +312,18 @@ Avg_DD_final = mean(DD_max_final);
 TP_positioning_final(:,i) = TP(:,Best(1,2,i),i);
 TP_max_final = max(TP_positioning_final,[],2);
 
-TP_eMBB_final = 0;
-eMBB_count_final = 0;
+TP_eMBB = 0;
+eMBB_count = 0;
 
 for j = 1:length(TP_max_final)
     if User_Service(j) == 1
         
-        TP_eMBB_final = TP_eMBB_final + TP_max_final(j);
-        eMBB_count_final = eMBB_count_final + 1;
+        TP_eMBB = TP_eMBB + TP_max_final(j);
+        eMBB_count = eMBB_count + 1;
     end
 end
 
-Avg_TP_final = TP_eMBB_final/eMBB_count_final;
+Avg_TP_final = TP_eMBB/eMBB_count;
 
 
 end
@@ -350,8 +345,6 @@ end
     end
 
 end
-
-final_metrics = [Avg_SINR_final, Avg_TP_final, Avg_DD_final, Assoc];
 
 AHP_time = toc;
 

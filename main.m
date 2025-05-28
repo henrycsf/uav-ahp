@@ -3,9 +3,9 @@ clc
 
 nmi = 1000;
 
-Tol = 1;
+Tol = 1.01;
 
-plots = true;
+plots = false;
 
 % CaseSelect:
 
@@ -18,7 +18,9 @@ plots = true;
 
 CaseSelect = 1;
 
-dir = '/home/henry-ferreira/Documentos/WORK/PeerJ_2/Trab final/';
+pop_size = 25;
+
+dir = '\\maa1.cc.lut.fi\home\z143799\Documents\Projects\uav-ahp-main\';
 
 % % Adaptive-AHP and CS, Simulation 1
 
@@ -39,11 +41,21 @@ beta1 = 0.43;
 
 [Zcov1,Zcap1,Rcov1,Rcap1, Pt1] = numerology(h1,X1,Y1,N_users1,delta_cov1, DataRate1, alpha1, beta1);
 
-% [UAV1, Best1, AHP_time1, Assoc1, Mean_SINR_AHP1, Mean_DD_AHP1] = drone_positioning_AHP(CaseSelect, Pt1, N_users1, X1, ...
-%     Y1, h1, DataRate1, Users1, Demand1, Zcov1, Zcap1, Rcov1, Rcap1, nmi, alpha1, beta1, plots);
+[UAV1, Best1, Network_Metrics_AHP1, AHP_time1] = drone_positioning_AHP(CaseSelect, Pt1, N_users1, X1, ...
+    Y1, h1, DataRate1, Users1, Demand1, Zcov1, Zcap1, Rcov1, Rcap1, nmi, alpha1, beta1, plots);
 
-[bestnest1, fmin1, Assoc_CS1, Mean_SINR_CS1, Mean_DD_CS1, Simulation_time_CS1]=cs_positioning(CaseSelect, Pt1, N_users1, X1, ...
-    Y1, h1, DataRate1, Users1, Demand1, Zcov1, Zcap1, Rcov1, Rcap1, nmi, Tol, alpha1, beta1, plots);
+normal_values1 = Network_Metrics_AHP1;
+
+[best_PSO_1,fmin_PSO_1, Network_Metrics_PSO_1, Simulation_time_AHP_1] = PSO(CaseSelect, Pt1, N_users1, X1, Y1, h1, DataRate1, ...
+    Users1, Demand1, Zcov1, Zcap1, Rcov1, Rcap1, nmi, Tol, pop_size, alpha1, beta1, normal_values1, plots);
+
+[best_CS_1, fmin_CS_1, Network_Metrics_CS_1, Simulation_time_CS1]=cs_positioning(CaseSelect, Pt1, N_users1, X1, ...
+    Y1, h1, DataRate1, Users1, Demand1, Zcov1, Zcap1, Rcov1, Rcap1, nmi, Tol, pop_size, alpha1, beta1, normal_values1, plots);
+
+[best_NSGA2_1,fmin_NSGA2_1, Network_Metrics_NSGA2_1, Simulation_time_NSGA2_1] = nsga2_positioning(CaseSelect, Pt1, N_users1, X1, Y1, h1, DataRate1, ...
+    Users1, Demand1, Zcov1, Zcap1, Rcov1, Rcap1, nmi, Tol, pop_size, alpha1, beta1, normal_values1, plots);
+
+%% 
 
 % % Adaptive-AHP and CS, Simulation 2
 
@@ -64,34 +76,62 @@ beta2 = 0.08;
 
 [Zcov2,Zcap2,Rcov2,Rcap2,Pt2] = numerology(h2,X2,Y2,N_users2,delta_cov2, DataRate2, alpha2, beta2);
 
-% [UAV2, Best2, AHP_time2, Assoc2, Mean_SINR_AHP2, Mean_DD_AHP2] = drone_positioning_AHP(CaseSelect, Pt2, N_users2, X2, ...
-%     Y2, h2, DataRate2, Users2, Demand2, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
+[UAV2, Best2, Network_Metrics_AHP2, AHP_time2] = drone_positioning_AHP(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2, Demand2, Zcov2, Zcap2, Rcov2, Rcap2, nmi, alpha2, beta2, plots);
 
-[bestnest2, fmin2, Assoc_CS2, Mean_SINR_CS2, Mean_DD_CS2, Simulation_time_CS2]=cs_positioning(CaseSelect, Pt2, N_users2, X2, ...
-    Y2, h2, DataRate2, Users2, Demand2, Zcov2, Zcap2, Rcov2, Rcap2, nmi, Tol, alpha2, beta2, plots);
+normal_values2 = Network_Metrics_AHP2;
+
+[best_PSO_2,fmin_PSO_2, Network_Metrics_PSO_2, Simulation_time_AHP_2] = PSO(CaseSelect, Pt2, N_users2, X2, Y2, h2, DataRate2, ...
+    Users2, Demand2, Zcov2, Zcap2, Rcov2, Rcap2, nmi, Tol, pop_size, alpha2, beta2, normal_values2, plots);
+
+[best_CS_2, fmin_CS_2, Network_Metrics_CS_2, Simulation_time_CS2]=cs_positioning(CaseSelect, Pt2, N_users2, X2, ...
+    Y2, h2, DataRate2, Users2, Demand2, Zcov2, Zcap2, Rcov2, Rcap2, nmi, Tol, pop_size, alpha2, beta2, normal_values2, plots);
+
+[best_NSGA2_2,fmin_NSGA2_2, Network_Metrics_NSGA2_2, Simulation_time_NSGA2_2] = nsga2_positioning(CaseSelect, Pt2, N_users2, X2, Y2, h2, DataRate2, ...
+    Users2, Demand2, Zcov2, Zcap2, Rcov2, Rcap2, nmi, Tol, pop_size, alpha2, beta2, normal_values2, plots);
+
+%% 
 
 % 
-% % Adaptive-AHP and CS, Simulation 3
+% Adaptive-AHP and CS, Simulation 3
 
-% DataRate3 = [6.0*10^6 3.0*10^6 0.8*10^6];
-% 
-% Users3 = load(horzcat(dir,'Users_festival.txt'));
-% 
-% Demand3 = load(horzcat(dir,'Demand_festival.txt'));
-% 
-% delta_cov3 = 0.40;
-% N_users3 = length(Users3);
-% X3 = 1270;
-% Y3 = 400;
-% h3 = 50; %height in meters
-% 
-% alpha3 = 9.6;
-% beta3 = 0.28;
+DataRate3 = [6.0*10^6 3.0*10^6 0.8*10^6];
 
-% [Zcov3,Zcap3,Rcov3,Rcap3,Pt3] = numerology(h3,X3,Y3,N_users3,delta_cov3,DataRate3, alpha3, beta3);
+Users3 = load(horzcat(dir,'Users_festival.txt'));
 
-% [UAV3, Best3, AHP_time3, Assoc3, Mean_SINR_AHP3, Mean_DD_AHP3] = drone_positioning_AHP(CaseSelect, Pt3, N_users3, X3, ...
-%     Y3, h3, DataRate3, Users3, Demand3, Zcov3, Zcap3, Rcov3, Rcap3, nmi, alpha3, beta3, plots);
+Demand3 = load(horzcat(dir,'Demand_festival.txt'));
 
-% [bestnest3, fmin3, Assoc_CS3, Mean_SINR_CS3, Mean_DD_CS3, Simulation_time_CS3]=cs_positioning(CaseSelect, Pt3, N_users3, X3, ...
-%     Y3, h3, DataRate3, Users3, Demand3, Zcov3, Zcap3, Rcov3, Rcap3, nmi, Tol, alpha3, beta3, plots);
+delta_cov3 = 0.40;
+N_users3 = length(Users3);
+X3 = 1270;
+Y3 = 400;
+h3 = 50; %height in meters
+
+alpha3 = 9.6;
+beta3 = 0.28;
+
+[Zcov3,Zcap3,Rcov3,Rcap3, Pt3] = numerology(h3,X3,Y3,N_users3,delta_cov3, DataRate3, alpha3, beta3);
+
+disp("NetPlan Done!")
+
+[UAV3, Best3, Network_Metrics_AHP3, Simulation_time_AHP_3] = drone_positioning_AHP(CaseSelect, Pt3, N_users3, X3, ...
+    Y3, h3, DataRate3, Users3, Demand3, Zcov3, Zcap3, Rcov3, Rcap3, nmi, alpha3, beta3, plots);
+
+disp("AHP Done!")
+
+normal_values3 = Network_Metrics_AHP3;
+
+[best_PSO_3,fmin_PSO_3, Network_Metrics_PSO_3, Simulation_time_PSO_3] = PSO(CaseSelect, Pt3, N_users3, X3, Y3, h3, DataRate3, ...
+    Users3, Demand3, Zcov3, Zcap3, Rcov3, Rcap3, nmi, Tol, pop_size, alpha3, beta3, normal_values3, plots);
+
+disp("PSO Done!")
+
+[best_CS_3, fmin_CS_3, Network_Metrics_CS_3, Simulation_time_CS3]=cs_positioning(CaseSelect, Pt3, N_users3, X3, ...
+    Y3, h3, DataRate3, Users3, Demand3, Zcov3, Zcap3, Rcov3, Rcap3, nmi, Tol, pop_size, alpha3, beta3, normal_values3, plots);
+
+disp("CS Done!")
+
+[best_NSGA2_3,fmin_NSGA2_3, Network_Metrics_NSGA2_3, Simulation_time_NSGA2_3] = nsga2_positioning(CaseSelect, Pt3, N_users3, X3, Y3, h3, DataRate3, ...
+    Users3, Demand3, Zcov3, Zcap3, Rcov3, Rcap3, nmi, Tol, pop_size, alpha3, beta3, normal_values3, plots);
+
+disp("GA Done!")
